@@ -17,3 +17,11 @@ git remote add origin git@github.com:X1AOX1A/Replication.git
 
 git push --set-upstream origin RepoName
 ```
+
+To pull from original repo:
+
+```bash
+git config pull.rebase false 
+git remote add RepoName git@github.com:User/RepoName.git
+git pull RepoName main
+```
