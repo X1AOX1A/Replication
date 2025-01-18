@@ -121,7 +121,7 @@ def init_ds_models(type, load, ref_load, bon_dataset):
     dir_name = ref_load.split('/')[-1] if ref_load else "placeholder"
     ref_logits_dir = f"./ref_logits/{dir_name}"
     os.makedirs(os.path.join(ref_logits_dir, bon_dataset), exist_ok=True)
-    ref_logits_path_list = [f"{ref_logits_dir}/{bon_dataset}/{testset_generator}.json" 
+    ref_logits_path_list = [f"{ref_logits_dir}/{bon_dataset}/{testset_generator}.json"
                             for testset_generator in ["llama3.1-8b-inst","llama3.1-70b-inst","mistral-inst"]]
     if 'implicit_prm' in type and ref_load != None and any([not os.path.exists(ref_logits_path) for ref_logits_path in ref_logits_path_list]):
         ref_model = AutoModelForCausalLM.from_pretrained(ref_load).cuda()  # torch_dtype=torch.bfloat16)
@@ -138,7 +138,7 @@ def init_ds_models(type, load, ref_load, bon_dataset):
 
 
 def load_data(file_name, origin_dataset):
-        
+
     queries = []
     if file_name.endswith('json'):
         cur_data = json.load(open(file_name))
@@ -383,7 +383,7 @@ def compute_beta(rewards, method):
     ori_shape = rewards.shape
     if method == "constant":
         beta = 1
-    
+
     if method == "weighted":
         beta = 1 / torch.ones_like(rewards).cumsum(-1).cuda()
         assert beta.shape == rewards.shape, (beta.shape, rewards)
@@ -395,9 +395,9 @@ def compute_beta(rewards, method):
         assert beta.shape[0] == rewards.shape[0] and beta.shape[1] == 1, (beta.shape, rewards.shape)
 
     rewards = beta * rewards
-    
+
     assert rewards.shape == ori_shape
-    
+
     return rewards
 
 
@@ -410,7 +410,7 @@ def get_reward(model, inputs, type, accelerator, ref_per_token_logps=None, good_
         if 'partial' in type:
             cur_index = [torch.where(inputs['special_tokens'][i] == -100, 0, inputs['special_tokens'][i]) for i in len(inputs['special_tokens'])]
         else:
-            cur_index = torch.where(inputs['special_tokens']==-100, 0, inputs['special_tokens']) 
+            cur_index = torch.where(inputs['special_tokens']==-100, 0, inputs['special_tokens'])
 
         all_rewards = {}
         for ref_setup in ["w/ ref","w/o ref"]:
@@ -456,7 +456,7 @@ def get_reward(model, inputs, type, accelerator, ref_per_token_logps=None, good_
                             rewards = torch.where(inputs['special_tokens'][:, 1:] == -100, 1e3, rewards)
                         else:
                             rewards = beta_reward.clone()
-                        rewards = R(rewards)
+                        # rewards = R(rewards)
                         all_rewards[ref_setup][beta_method][reward_approach] = rewards
 
 
@@ -474,8 +474,8 @@ def get_reward(model, inputs, type, accelerator, ref_per_token_logps=None, good_
 
         rewards = gather_object(rewards)
         all_rewards = {"w/o ref": {"constant": {"single": rewards}}}
-        
-    
+
+
     reward_idxes = accelerator.gather(inputs['reward_idx'])
     return all_rewards, reward_idxes
 
@@ -491,16 +491,16 @@ def manipulate_rewards(all_rewards, queries, reward_idxes, accelerator):
                 for method in ["min", "sum"]:
 
                     if method == "min":
-                        rewards = [reward.min(-1).values for reward in ori_rewards]
+                        rewards = [reward.min(-1).values for reward in ori_rewards] # lyx: is here token level reward?
                     elif method == "sum":
                         rewards = [torch.where(reward==1e3,0,reward).sum(-1)  for reward in ori_rewards]
                     elif method == "mean":
                         rewards = [torch.where(reward==1e3,0,reward).sum(-1)/torch.where(reward==1e3,0,1).sum(-1) for reward in ori_rewards]
 
-                    # rewards = gather_object(rewards)
+                    rewards = gather_object(rewards)
                     different_calculations[method] = rewards
 
-                    assert len(rewards) == len(reward_idxes)
+                    assert len(rewards) == len(reward_idxes), (len(rewards), len(reward_idxes))
                     for reward, reward_idx in zip(rewards, reward_idxes):
                         if "reward" not in queries[int(reward_idx)].keys():
                             queries[int(reward_idx)]["reward"] = {}
@@ -513,7 +513,7 @@ def manipulate_rewards(all_rewards, queries, reward_idxes, accelerator):
                         queries[int(reward_idx)]["reward"][ref_setup][beta_method][reward_approach][method] = reward.item()
 
                 all_rewards[ref_setup][beta_method][reward_approach] = different_calculations
-        
+
     return all_rewards, queries
 
 
