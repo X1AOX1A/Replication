@@ -23,7 +23,7 @@ def seed_everything(seed=0):
 
 
 def compute_metrics(dataset_name, scored_results, key_list):
-    
+
     sample_nums = [1, 2,4,8, 16, 32, 64]
 
     metrics = {"w/o sc":{}, "w/ sc":{}, "sc": {}, "pass@k": {}}
@@ -65,17 +65,17 @@ def compute_metrics(dataset_name, scored_results, key_list):
                         acc = correct/sumv
 
                     metrics[sc_key][n] = round(acc * 100, 1)
-    
+
     # baselines
     for n in sample_nums:
         splitted_completions = split_query(scored_results, n, max(sample_nums))
         selected_completions = []
         for comps in splitted_completions:
             selected_completions += comps
-        
+
         acc_list = [comp["correctness"] for comp in selected_completions]
         output_list = [comp["extracted_output"] for comp in selected_completions]
-        
+
         total_index = int(len(acc_list) / n)
 
         pass_k = sum([1 for ii in range(total_index) if any(acc_list[ii*n:(ii+1)*n])])/total_index
@@ -95,7 +95,7 @@ if __name__=='__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--local-rank", type=int, default=0)
-    parser.add_argument("--batch-size", type=int, default=0)
+    parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--baseline", type=int, default=0)
     parser.add_argument("--combine", type=int, default=0)
     parser.add_argument("--type", type=str, default='implicit_prm',choices=['implicit_prm','baseline-value-head','baseline-ntp','implicit_prm-orm'])
@@ -117,9 +117,9 @@ if __name__=='__main__':
     print(args)
     accelerator = Accelerator()
 
-    
+
     file_list, origin_dataset = get_raw_data(args.bon_dataset)
-    
+
     tokenizer, ref_tokenizer = get_tokenizer(args.load, args.ref_load)
 
     begin_of_action_token = args.begin_of_action_token
@@ -144,7 +144,9 @@ if __name__=='__main__':
             print('Current evaluated file:',file_name)
 
         random.seed(0)
-        dataloader, ref_dataloader = get_dataloader(args.type, queries, args.batch_size, tokenizer, ref_tokenizer, special_ids, prm_special_ids, accelerator)
+        # https://github.com/PRIME-RL/ImplicitPRM/issues/8
+        # dataloader, ref_dataloader = get_dataloader(args.type, queries, args.batch_size, tokenizer, ref_tokenizer, special_ids, prm_special_ids, accelerator)
+        dataloader, ref_dataloader = get_dataloader(args.type, queries, args.batch_size, tokenizer, tokenizer, special_ids, prm_special_ids, accelerator)
 
         dataloader = devide_dataloader_to_devices(dataloader, accelerator, args.local_rank)
         ref_dataloader = devide_dataloader_to_devices(ref_dataloader, accelerator, args.local_rank) if ref_dataloader != None else None
@@ -182,7 +184,7 @@ if __name__=='__main__':
             start_time = time.perf_counter()
 
             for batch_id, inputs in tqdm(enumerate(dataloader), desc="policy forward"):
-                
+
                 if "implicit_prm" in args.type:
                     batch_rewards, reward_idxes = get_reward(model, inputs, args.type, accelerator, ref_per_token_logps=all_ref_logits[batch_id])
                 else:
