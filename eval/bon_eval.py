@@ -222,6 +222,7 @@ if __name__=='__main__':
         if accelerator.is_main_process:
             os.makedirs("metrics", exist_ok=True)
             pd.DataFrame(results).to_json(f"metrics/{file_name.split('/')[-1][:-5]}-{save_name if 'orm' not in args.type else save_name+'-orm'}.json", orient="records", lines=True)
-            f = open(f"metrics/{file_name.split('/')[-1][:-5]}-{save_name if 'orm' not in args.type else save_name+'-orm'}.txt", "w")
-            for k, v in results.items():
-                print(f"{k}: {v}")
+            with open(f"metrics/{file_name.split('/')[-1][:-5]}-{save_name if 'orm' not in args.type else save_name+'-orm'}.txt", "w") as f:
+                for k, v in results.items():
+                    print(f"{k}: {v}")
+                    f.write(f"{k}: {v}\n")

@@ -445,17 +445,17 @@ def get_reward(model, inputs, type, accelerator, ref_per_token_logps=None, good_
                         beta_reward = torch.where(inputs['turn_mask'] == 0, 1e3, beta_reward).transpose(0,1)
                     else:
                         beta_reward = coef * beta_reward_before_scaling
-                        beta_reward = beta_reward.cumsum(-1)
+                        beta_reward = beta_reward.cumsum(-1)        # lyx: 将所有的 cumsum 作为每一个 token 的 process reward
                         beta_reward = beta_reward.gather(dim=-1, index=cur_index[:, 1:])
                         beta_reward = torch.where(inputs['special_tokens'][:, 1:] == -100, 1e3, beta_reward)
 
                     for reward_approach in ["single", "accumulative"] if type != "implicit_prm-orm" else ["orm"]:
-                        if reward_approach == "single":
+                        if reward_approach == "single":         # lyx: 做差恢复为原有的 reward
                             rewards = beta_reward - torch.cat([torch.zeros(beta_reward.shape[0],1, device=beta_reward.device),
                                                 beta_reward[:, :-1]], dim=-1)
                             rewards = torch.where(inputs['special_tokens'][:, 1:] == -100, 1e3, rewards)
                         else:
-                            rewards = beta_reward.clone()
+                            rewards = beta_reward.clone()       # lyx: 默认 cumsum, 即 accumulative
                         rewards = gather_object(rewards)
                         all_rewards[ref_setup][beta_method][reward_approach] = rewards
 
@@ -497,7 +497,7 @@ def manipulate_rewards(all_rewards, queries, reward_idxes, accelerator):
                     elif method == "mean":
                         rewards = [torch.where(reward==1e3,0,reward).sum(-1)/torch.where(reward==1e3,0,1).sum(-1) for reward in ori_rewards]
 
-                    rewards = gather_object(rewards)
+                    # rewards = gather_object(rewards)
                     different_calculations[method] = rewards
 
                     assert len(rewards) == len(reward_idxes), (len(rewards), len(reward_idxes))
