@@ -15,5 +15,5 @@ git remote remove origin
 git remote add origin git@github.com:X1AOX1A/Replication.git
 # git remote -v
 
-git push --set-upstream origin ImplicitPRM
+git push --set-upstream origin RepoName
 ```
