@@ -56,5 +56,5 @@ termcolor==2.5.0
 tokenizers==0.20.0
 torch==2.4.1
 tqdm==4.66.5
-transformers==4.46.0.dev0
+transformers==4.46.0
 triton==3.0.0
