@@ -34,3 +34,10 @@ pip install "vllm==0.7.0"
 conda activate mini-r1
 accelerate launch --num_processes 3 --config_file configs/accelerate_configs/deepspeed_zero3.yaml scripts/run_r1_grpo.py --config receipes/grpo-qwen-2.5-3b-deepseek-r1-countdown.yaml
 ```
+
+## Output
+
+- [completion_samples/completion_samples.txt](./completion_samples/completion_samples.txt)
+- [completion_samples/success_completion_samples.txt](./completion_samples/success_completion_samples.txt)
+
+![](./figures/loss.png)
