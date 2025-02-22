@@ -32,6 +32,7 @@ pip install "vllm==0.7.0"
 
 ```bash
 conda activate mini-r1
+# 4*A100-80G, 8.2hrs
 accelerate launch --num_processes 3 --config_file configs/accelerate_configs/deepspeed_zero3.yaml scripts/run_r1_grpo.py --config receipes/grpo-qwen-2.5-3b-deepseek-r1-countdown.yaml
 ```
 
