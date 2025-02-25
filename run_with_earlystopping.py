@@ -518,7 +518,7 @@ def cal_reward(question,ans):
             ret = 50
         # elif ret <= -100:
         #     ret = -50
-        return ret 
+        return ret
 
 @retry()
 def get_weak_answer(question,new_len=0,ans_format=''):
@@ -597,6 +597,7 @@ def check(gt,ans):
         return True
     else:
         return False
+    # return False
 
 def hamming_distance(str1, str2):
     if len(str1) != len(str2):
@@ -611,14 +612,14 @@ def simple_reward(gt,ans):
 def sort_answers_and_rewards(answers, rewards):
     # Zip answers and rewards together
     answer_reward_pairs = zip(answers, rewards)
-    
+
     # Sort pairs by rewards
     sorted_pairs = sorted(answer_reward_pairs, key=lambda x: x[1], reverse=True)
-    
+
     # Extract sorted answers and rewards
     sorted_answers = [pair[0] for pair in sorted_pairs]
     sorted_rewards = [pair[1] for pair in sorted_pairs]
-    
+
     return sorted_answers, sorted_rewards
 
 def filter_mature_node(childs, to_explore, to_explore_reward,max_expand=3):
@@ -628,7 +629,7 @@ def filter_mature_node(childs, to_explore, to_explore_reward,max_expand=3):
     for node in to_explore:
         if len(childs.get(node,[])) < max_expand or max([avg_reward.get(child,-999) for child in childs.get(node,[])]) < avg_reward.get(node,-999):
             filterd_to_explore.append(node)
-    
+
     return filterd_to_explore
 
 
@@ -636,14 +637,14 @@ def get_best_explore_from_ucb(to_explore, ucb_bank):
     # 初始化最佳节点和最高UCB值
     best_node = None
     highest_ucb = float('-inf')
-    
+
     # 遍历所有待探索的节点
     for node in to_explore:
         ucb_value = ucb_bank.get(node, float('-inf'))
         if ucb_value > highest_ucb:
             highest_ucb = ucb_value
             best_node = node
-            
+
     return best_node
 
 
@@ -660,12 +661,12 @@ def update_ucb(fathers, childs, to_explore, to_explore_reward, ucb_bank, C=1.4,g
 
     # 获取所有叶子节点
     leaves = set(to_explore) - set(fathers.values())
-    
+
     # 更新所有叶子节点的UCB值
     for leaf in leaves:
         # ucb_bank[leaf] = avg_reward[leaf]
         ucb_bank[leaf] = compute_ucb(avg_reward[leaf],len(to_explore_reward.get(fathers.get(leaf,None),[])),len(to_explore_reward.get(leaf,[])),C)
-    
+
     # 从叶子节点向上更新父节点的UCB值
     nodes_to_update = list(leaves)
     while nodes_to_update:
@@ -734,7 +735,7 @@ def main_loop(query,ground_truth,max_iter=16,ans_format=''):
     sampling_reward(weak_answer)
     ##add total-bad answer###
     # if check(ground_truth,weak_answer):
-    #     return 
+    #     return
     if True:#not check(ground_truth,weak_answer):
         total_bad = random.choice(["I Don't Know","I can't understand this question.","I can't help with this question.","I don't know how to solve this question.","I don't know the answer to this question.","I don't know the answer to this question, sorry."])
         total_bad_history = copy.deepcopy(history)
@@ -843,17 +844,17 @@ def func(example):
             ans_format = r'"[Final Answer] The answer is \\boxed{[Yes or No]} \n#### [Yes or No]"'
         else:
             ans_format = r'"[Final Answer] The answer is \\boxed{[answer formula]} \n#### [answer formula]"'
-        
+
     # new_len = len(ground_truth)
     hints_prompt = f'Question: {query}\nCould you provide me with the thought process to solve this problem, but please don’t give me the answer or calculation, just the thought process?'
-    max_iter = 16
+    max_iter = 8
     if 'meta-math' in DATA_NAME:
         max_iter = 8
     if 'testtime' in DATA_NAME:
         max_iter = 2
     hints_list,answers_list,to_explore,to_explore_reward,hints_bank,history_bank,hints_reward_imp_bank,fathers,childs,ucb_bank = main_loop(query,ground_truth,max_iter=max_iter,ans_format=ans_format)
     if len(answers_list) <= 1 and 'rs' in DATA_NAME:
-        return 
+        return
     else:
         if not 'testtime' in DATA_NAME:
             # gt_hints = get_gt_hints(query,ground_truth)
@@ -882,17 +883,14 @@ def func(example):
 
         with open(f'{DATA_NAME}/jsons/{hashlib.md5(str(example).encode()).hexdigest()}.json','w+') as f:
             json.dump(data,f,indent=4,ensure_ascii=False)
-        
+
         return data
 
 if __name__ == '__main__':
     get_clients()
-    # while True:
-    #     try:
-    # datas = dataset.map(func,num_proc=len(clients)*8)
-    datas = dataset.map(func,num_proc=32)
-        # except :
-        #     continue
-        # break
-
-    # datas.save_to_disk('meta-math-40k-weak-better-mistral7B-data')
+    while True:
+        try:
+            # datas = dataset.map(func,num_proc=len(clients)*8)
+            datas = dataset.map(func,num_proc=32)
+        except:
+            datas.save_to_disk('gsm8k')
