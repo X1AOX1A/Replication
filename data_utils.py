@@ -211,7 +211,8 @@ def mix_datasets(
         fracs.append(frac)
         for split in splits:
             if args.load_from_disk:
-                dataset = load_from_disk(os.path.join(ds, split))
+                # dataset = load_from_disk(os.path.join(ds, split))
+                dataset = load_dataset("json", data_files=ds)["train"]
             else:
                 # Try first if dataset on a Hub repo
                 dataset = load_dataset(ds, ds_config, split=split)
@@ -252,13 +253,13 @@ def mix_datasets(
     return raw_datasets
 
 def process_ultrafeedback_binarized():
-        
+
     dataset = load_dataset("../../DATASET/HuggingFaceH4/ultrafeedback_binarized")
-    
+
     chosen_dataset = DatasetDict()
     rejected_dataset = DatasetDict()
     for split in ["train_prefs", "test_prefs"]:
-        
+
         ds = dataset[split]
         target_split = split.split("_")[0]
         chosen_dataset[target_split] = ds.map(lambda example: {
@@ -267,16 +268,16 @@ def process_ultrafeedback_binarized():
         rejected_dataset[target_split] = ds.map(lambda example: {
             "messages": example["rejected"]
         }, remove_columns=[col for col in ds.column_names if col != "messages"])
-        
+
     print("ultrafeedback_binarized", len(chosen_dataset), len(rejected_dataset))
-    
+
     chosen_dataset.save_to_disk("./data/ultrafeedback_binarized_chosen")
     rejected_dataset.save_to_disk("./data/ultrafeedback_binarized_rejected")
-    
+
     return dataset
 
 def process_deita_10k():
-            
+
     def process(example):
         messages = [
             {"role": "user", "content": turn["value"]} if turn["from"] == "human" else {"role": "assistant", "content": turn["value"]} for turn in example["conversations"]
@@ -284,48 +285,48 @@ def process_deita_10k():
         if messages[0]["role"] == "assistant":
             messages = messages[1:]
         return {"messages": messages}
-            
+
     dataset = load_dataset("../../DATASET/hkust-nlp/deita-10k-v0")
-    dataset = dataset.map(process, 
+    dataset = dataset.map(process,
                           remove_columns=[col for col in dataset.column_names["train"] if col != "messages"])
-    
+
     print(dataset)
     dataset.save_to_disk("./data/hkust-nlp/deita-10k-v0")
-    
+
     return dataset
 
 def process_mathinstruct():
-    
+
     def process(example):
         messages = [
             {"role": "user", "content": example["instruction"]},
             {"role": "assistant", "content": example["output"]}
         ]
         return {"messages": messages}
-    
+
     dataset = load_dataset("./DATASET/TIGER-Lab/MathInstruct")
     # print(dataset.column_names["train"])
     dataset = dataset.map(process,
                           remove_columns=[col for col in dataset.column_names["train"] if col != "messages"])
-    
+
     print(dataset.column_names["train"])
     # print(dataset["train"][0])
     dataset.save_to_disk("./data/TIGER-Lab/MathInstruct")
 
 def process_openmathinstruct():
-    
+
     def process(example):
         messages = [
             {"role": "user", "content": example["problem"]},
             {"role": "assistant", "content": example["generated_solution"]}
         ]
         return {"messages": messages}
-    
+
     dataset = load_dataset("./DATASET/nvidia/OpenMathInstruct-2")
     # print(dataset.column_names["train"])
     dataset = dataset.map(process,
                           remove_columns=[col for col in dataset.column_names["train"] if col != "messages"])
-    
+
     print(dataset.column_names["train"])
     # print(dataset["train"][0])
     dataset.save_to_disk("./data/nvidia/OpenMathInstruct-2")
@@ -338,11 +339,11 @@ def process_gsm8k():
             {"role": "assistant", "content": example["cot_path"]}
         ]
         return {"messages": messages}
-    
+
     dataset = load_dataset('json', data_files='./DATASET/gsm8k/gsm8k.jsonl')
     dataset = dataset.map(process,
                           remove_columns=[col for col in dataset.column_names["train"] if col != "messages"])
-    
+
     print(dataset.column_names["train"])
     print(dataset["train"][0])
     dataset.save_to_disk("./data/gsm8k")
@@ -352,10 +353,10 @@ def process_math():
     def process(example):
         messages = [
             {"role": "user", "content": example["problem"]},
-            {"role": "assistant", "content": example["solution"]}            
+            {"role": "assistant", "content": example["solution"]}
         ]
         return {"messages": messages}
-    
+
     dataset = load_dataset('./DATASET/lighteval/MATH')
 
     dataset = dataset.map(process,
@@ -372,12 +373,12 @@ def process_synthetic_gsm8k():
             {"role": "assistant", "content": example["cot_path"]}
         ]
         return {"messages": messages}
-    
+
     dataset = load_from_disk("./DATASET/gsm8k/Meta-Llama-3.1-8B-Instruct")
     print(dataset)
     dataset = dataset.map(process,
                           remove_columns=[col for col in dataset.column_names["train"] if col != "messages"])
-    
+
     print(dataset.column_names["train"])
     print(dataset["train"][0])
     dataset.save_to_disk("./data/gsm8k/Meta-Llama-3.1-8B-Instruct")
@@ -390,12 +391,12 @@ def process_synthetic_math(model_name):
             {"role": "assistant", "content": example["solution"]}
         ]
         return {"messages": messages}
-    
+
     dataset = load_from_disk(f"./DATASET/math/{model_name}")
     print(dataset)
     dataset = dataset.map(process,
                           remove_columns=[col for col in dataset.column_names["train"] if col != "messages"])
-    
+
     print(dataset.column_names["train"])
     print(dataset["train"][0])
     dataset.save_to_disk(f"./data/math/{model_name}")

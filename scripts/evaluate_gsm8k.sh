@@ -1,7 +1,7 @@
-export NCCL_P2P_LEVEL=NVL
-export NCCL_IB_GID_INDEX=3
+# export NCCL_P2P_LEVEL=NVL
+# export NCCL_IB_GID_INDEX=3
 export HF_DATASETS_OFFLINE=1
-export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+export CUDA_VISIBLE_DEVICES=0,1,2,3
 
 benchmark=gsm8k
 n_shot=0
@@ -11,13 +11,14 @@ max_input_tokens=2048
 micro_batch_size_per_gpu=1
 
 MODEL=Llama-3.2-1B-Instruct
-MODEL_NAME_OR_PATH=./model_space/${MODEL}
+MODEL_NAME_OR_PATH=meta-llama/Llama-3.2-1B-Instruct
 
 VERIFIER=${MODEL}-Verifier
 VERIFIER_MODEL_NAME_OR_PATH=./checkpoints/${VERIFIER}
 
 alpha=0.1
 beta=0.25
+num_beams=1
 
 
 for beta in 0.25
@@ -31,8 +32,8 @@ args="
     --max_input_tokens ${max_input_tokens} \
     --micro_batch_size_per_gpu ${micro_batch_size_per_gpu} \
     --model_name_or_path ${MODEL_NAME_OR_PATH} \
-    --num_workers 8 \
-    --preprocessing_num_workers 64 \
+    --num_workers 4 \
+    --preprocessing_num_workers 1 \
     --keep_in_memory \
     --num_beams ${num_beams} \
 "
