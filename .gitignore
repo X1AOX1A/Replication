@@ -32,3 +32,4 @@ debug*
 .vscode/
 .trash/
 .ipynb_checkpoints
+.gradio
