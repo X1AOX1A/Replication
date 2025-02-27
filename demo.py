@@ -5,14 +5,8 @@ import types
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from generation_utils import assisted_decoding
 
-def parse_args():
-    parser = argparse.ArgumentParser(description="Gradio demo for assisted decoding")
-    parser.add_argument("--checkpoint", type=str, required=True, help="Path to the main model checkpoint")
-    parser.add_argument("--assistant_checkpoint", type=str, required=True, help="Path to the assistant model checkpoint")
-    return parser.parse_args()
-
 class AssistedDecodingModel:
-    def __init__(self, checkpoint, assistant_checkpoint):
+    def __init__(self, checkpoint, assistant_checkpoint, num_assistant_tokens):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         print(f"Using device: {self.device}")
 
@@ -24,6 +18,9 @@ class AssistedDecodingModel:
 
         print(f"Loading assistant model from {assistant_checkpoint}...")
         self.assistant_model = AutoModelForCausalLM.from_pretrained(assistant_checkpoint).to(self.device)
+
+        if num_assistant_tokens>0:
+            self.assistant_model.generation_config.num_assistant_tokens=num_assistant_tokens
 
         # Overwrite _assisted_decoding method
         self.model._assisted_decoding = types.MethodType(assisted_decoding, self.model)
@@ -113,13 +110,24 @@ def create_demo(model):
 
     return demo
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Gradio demo for assisted decoding")
+    parser.add_argument("--checkpoint", type=str, required=True, help="Path to the main model checkpoint")
+    parser.add_argument("--assistant_checkpoint", type=str, required=True, help="Path to the assistant model checkpoint")
+    parser.add_argument("--num_assistant_tokens", type=int, default=-1, help="Number of assistant tokens to use")
+    return parser.parse_args()
+
 def main():
     args = parse_args()
-    model = AssistedDecodingModel(args.checkpoint, args.assistant_checkpoint)
+    model = AssistedDecodingModel(args.checkpoint, args.assistant_checkpoint, args.num_assistant_tokens)
     demo = create_demo(model)
     demo.launch(share=True)
 
 if __name__ == "__main__":
     main()
 
+## Dynamic
 # python demo.py --checkpoint meta-llama/Meta-Llama-3.1-8B-Instruct --assistant_checkpoint meta-llama/Llama-3.2-1B-Instruct
+
+## Fix 5 token
+# python demo.py --checkpoint meta-llama/Meta-Llama-3.1-8B-Instruct --assistant_checkpoint meta-llama/Llama-3.2-1B-Instruct --num_assistant_tokens 5
