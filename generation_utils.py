@@ -88,6 +88,7 @@ def assisted_decoding(
 
     this_peer_finished = False
     is_first_iteration = True  # to preserve the same API in the output as other generation methods
+    token_dict = {"accept_tokens": [], "reject_tokens": [], "next_token": []}
     while self._has_unfinished_sequences(this_peer_finished, synced_gpus, device=input_ids.device):
         cur_len = input_ids.shape[-1]
 
@@ -144,13 +145,16 @@ def assisted_decoding(
         # Case 1: `do_sample=True` and we have logits for the candidates (originally from speculative decoding)
         # 👉 Apply algorithm 1 from the speculative decoding paper (https://arxiv.org/pdf/2211.17192.pdf).
         if do_sample and candidate_logits is not None:
-            valid_tokens, n_matches = _speculative_sampling(
+            valid_tokens, n_matches, _token_dict = _speculative_sampling(
                 candidate_input_ids,
                 candidate_logits,
                 candidate_length,
                 new_logits,
                 is_done_candidate,
             )
+            token_dict["accept_tokens"].append(_token_dict["accept_tokens"].to("cpu"))
+            token_dict["reject_tokens"].append(_token_dict["reject_tokens"].to("cpu"))
+            token_dict["next_token"].append(_token_dict["next_token"].to("cpu"))
 
         # Case 2: all other cases (originally from assisted generation) 👉 Compare the tokens selected from the
         # original model logits with the candidate tokens. We can keep the candidate tokens until the first
@@ -169,6 +173,9 @@ def assisted_decoding(
             if is_done_candidate and n_matches == candidate_length:
                 n_matches -= 1
             valid_tokens = selected_tokens[:, : n_matches + 1]
+            token_dict["accept_tokens"].append(selected_tokens[:, : n_matches + 1].to("cpu"))
+            token_dict["reject_tokens"].append(selected_tokens[:, n_matches + 1 :].to("cpu"))
+            token_dict["next_token"].append(torch.tensor([]))
 
         # 4. Update variables according to the number of matching assistant tokens. Remember: the token generated
         # by the model after the last candidate match is also valid, as it is generated from a correct sequence.
@@ -267,16 +274,29 @@ def assisted_decoding(
                 past_key_values=model_kwargs.get("past_key_values"),
             )
         else:
-            return GenerateDecoderOnlyOutput(
+            return SpeculativeDecodeOutput(
                 sequences=input_ids,
                 scores=scores,
                 logits=raw_logits,
                 attentions=decoder_attentions,
                 hidden_states=decoder_hidden_states,
                 past_key_values=model_kwargs.get("past_key_values"),
+                token_dict=token_dict
             )
     else:
         return input_ids
+
+
+@dataclass
+class SpeculativeDecodeOutput(GenerateDecoderOnlyOutput):
+    """
+    token_dict = {
+        "accept_tokens": list[torch.Tensor],  # tensor shape: (1, n_matches)
+        "reject_tokens": list[torch.Tensor],  # tensor shape: (1, candidate_length - n_matches)
+        "next_token": list[torch.Tensor]      # tensor shape: (1, 1)
+    }
+    """
+    token_dict: Optional[Dict[str, torch.LongTensor]] = None
 
 
 def _speculative_sampling(
@@ -314,6 +334,11 @@ def _speculative_sampling(
         # due to acceptance on EOS we fix `n_matches`
         n_matches -= 1
         valid_tokens = new_candidate_input_ids[:, : n_matches + 1]
+        token_dict = {
+            "accept_tokens": valid_tokens,
+            "reject_tokens": torch.tensor([]),
+            "next_token": torch.tensor([])
+        }
     else:
         # Next token selection: if there is a rejection, adjust the distribution from the main model before sampling.
         gamma = candidate_logits.shape[1]
@@ -329,7 +354,17 @@ def _speculative_sampling(
         # The selected tokens include the matches (if any) plus the next sampled tokens
         if n_matches > 0:
             valid_tokens = torch.cat((new_candidate_input_ids[:, :n_matches], t), dim=-1)
+            token_dict = {
+                "accept_tokens": new_candidate_input_ids[:, :n_matches],    # shape: (1, n_matches)
+                "reject_tokens": new_candidate_input_ids[:, n_matches:],    # shape: (1, candidate_length - n_matches)
+                "next_token": t                                             # shape: (1, 1)
+            }
         else:
             valid_tokens = t
+            token_dict = {
+                "accept_tokens": torch.tensor([]),
+                "reject_tokens": new_candidate_input_ids,
+                "next_token": t
+            }
 
-    return valid_tokens, n_matches
+    return valid_tokens, n_matches, token_dict
