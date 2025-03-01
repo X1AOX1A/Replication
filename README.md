@@ -25,3 +25,16 @@ git config pull.rebase false
 git remote add RepoName git@github.com:User/RepoName.git
 git pull RepoName main
 ```
+
+To pull a specific branch:
+
+```bash
+mkdir RepoName
+cd RepoName
+git init
+git branch -m master RepoName
+
+git remote add origin git@github.com:X1AOX1A/Replication.git
+git pull origin RepoName
+git push --set-upstream origin RepoName
+```
