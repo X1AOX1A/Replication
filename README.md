@@ -56,6 +56,7 @@ wget -c https://huggingface.co/nieshen/SMDM/resolve/main/mdm_safetensors/mdm-102
 # Finetune MDMs
 # For the unsupervised CFG, we set --cfg to 0.
 # For the standard CFG, we set --cfg to 0.1
+conda activate smdm
 lightning run model \
     --node-rank=0  \
     --accelerator=cuda \
